@@ -1,56 +1,86 @@
 <template>
     <div>
         <h1>Sensor Data</h1>
-        <u1>
+        <p>Current Time: {{ currentTime }}</p> <!-- Display the current time -->
+        <ul>
             <li v-for="data in sensorData" :key="data.id">
-                Temperature: {{ data.temperature }} °C, Humidity: {{data.humidity}} %
+                Temperature: {{ data.temperature }} °C, Humidity: {{ data.humidity }} %, Recorded at: {{ formatTimestamp(data.timestamp) }}
             </li>
-        </u1>
+        </ul>
     </div>
 </template>
 
 <script>
-import  db  from '../firebaseConfig.js'; 
-import { collection, getDocs } from 'firebase/firestore'; // Import necessary functions
+import db from '../firebaseConfig.js'; 
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'; // Import necessary functions
 
 export default {
     data() {
         return {
             sensorData: [],
+            currentTime: '', // New data property for current time
         };
     },
     created() {
         this.fetchData();
+        this.updateTime(); // Call to set initial time
+    },
+    mounted() {
+        setInterval(this.updateTime, 1000); // Update time every second
     },
     methods: {
-        async fetchData() {
-            try {
-                const colRef = collection(db, 'sensorData'); // Create a reference to the collection
-                const snapshot = await getDocs(colRef); // Get documents from the collection
-                this.sensorData = snapshot.docs.map(doc => ({ id:doc.id, ...doc.data() }));
-            }
-            catch (error) {
-                console.error("Error fetchcing sensor data:", error);
-            }
+        fetchData() {
+            const colRef = collection(db, 'sensorData'); // Create a reference to the collection
+            const q = query(colRef, orderBy('timestamp', 'desc')); // Query to order by timestamp
+
+            // Listen for real-time updates
+            onSnapshot(q, (snapshot) => {
+                // Map through documents and get the latest 10 readings
+                this.sensorData = snapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .slice(0, 10); // Get only the top 10 latest readings
+            }, (error) => {
+                console.error("Error fetching sensor data:", error);
+            });
         },
+        updateTime() {
+            const now = new Date();
+            this.currentTime = now.toLocaleTimeString(); // Format current time as a string
+        },
+        formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString(); // Format timestamp as a readable string
+        }
     },
 };
-
 </script>
 
 <style scoped>
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9; /* Light background */
+    margin: 0;
+    padding: 20px;
+}
+
 div {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-family: Arial, sans-serif;
-    color: #333;
+    max-width: 800px;
+    margin: auto;
+    padding: 20px;
+    background-color: #ffffff; /* White background */
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 h1 {
+    color: #333; /* Dark text */
     font-size: 2em;
-    color: #0056b3;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
+}
+
+p {
+    color: #555; /* Medium grey for paragraph */
+    font-size: 1.1em;
 }
 
 ul {
@@ -59,17 +89,14 @@ ul {
 }
 
 li {
-    background-color: #f0f8ff;
+    background-color: #e7f3fe; /* Light blue */
+    border-radius: 5px;
     padding: 10px;
-    margin: 10px 0;
-    border-radius: 8px;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-    font-size: 1.1em;
+    margin-bottom: 10px;
+    color: #000; /* Ensure text inside list items is black */
 }
 
 li:hover {
-    background-color: #e6f2ff;
-    cursor: pointer;
+    background-color: #d1e7fd; /* Darker blue on hover */
 }
-
 </style>

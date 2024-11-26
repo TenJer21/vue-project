@@ -4,21 +4,38 @@
         <p>Current Time: {{ currentTime }}</p> <!-- Display the current time -->
         <ul>
             <li v-for="data in sensorData" :key="data.id">
-                Temperature: {{ data.temperature }} °C, Humidity: {{ data.humidity }} %, Recorded at: {{ formatTimestamp(data.timestamp) }}
+                <strong>Temperature:</strong> {{ data.temperature }}°C <br>
+                <strong>Humidity:</strong> {{ data.humidity }} %<br>
+                <strong>Recorded at:</strong> {{ formatTimestamp(data.timestamp) }}
             </li>
         </ul>
     </div>
 </template>
 
+
 <script>
+import { useSensorStore } from '@/stores/sensorStoreLab7Sup1.js';
+import { onMounted } from 'vue';
 import db from '../firebaseConfig.js'; 
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'; // Import necessary functions
 
+
 export default {
+    setup() {
+        const sensorStore = useSensorStore();
+
+        onMounted(() => {
+            sensorStore.fetchSensorData()
+        });
+
+        return{
+            sensorData: sensorStore.sensorData
+        };
+    },
     data() {
         return {
-            sensorData: [],
             currentTime: '', // New data property for current time
+            
         };
     },
     created() {
@@ -78,6 +95,11 @@ h1 {
     margin-bottom: 10px;
 }
 
+h2 {
+    color: #333; /* Dark text */
+    font-size: 0.75em;
+    margin-bottom: 10px;
+}
 p {
     color: #555; /* Medium grey for paragraph */
     font-size: 1.1em;

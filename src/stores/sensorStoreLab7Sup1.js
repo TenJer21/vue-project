@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
-import db from '../firebaseConfig'; // Import Firebase config
-
+import db from '../firebaseConfig.js'; 
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'; // Import necessary functions
 // In-memory cache for quick acceess during the session
 const inMemoryCache = [];
 
@@ -17,20 +17,30 @@ export const useSensorStore = defineStore('sensor', {
        async fetchSensorData(){
         // Check if data exists in inMemoryCache first
         if (inMemoryCache.length > 0) {
+            console.log(inMemoryCache);
             this.sensorData = inMemoryCache; // Use cached data
-        } else {
-            try {
-                // Fetch data from Firebase and populate sensorDataa
-                const snapshot =  await db.collection('sensorData').get();
-                this.sensorData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                inMemoryCache.push(...this.sensorData); // Upate in-memoryu cachje
+        } 
+
+        try {
+            // Fetch data from Firebase and populate sensorDataa
+            const colRef = collection(db, 'sensorData');
+            const q = query(colRef, orderBy('timestamp', 'desc'));
+
+            onSnapshot(q, (snapshot) => {
+                // Map through documents and get the latest 10 readings
+                this.sensorData = snapshot.docs
+                    .map(doc => ({ id:doc.id, ...doc.data() }))
+                    .slice(0,10); // Get only 1top 10 latestt readings
+                inMemoryCache.push({...this.sensorData}); // Upate in-memoryu cachje
                 this.updateLocalStorage(); // Save to local storage
-                // Populate inMemoryCache and localStorage here
-            } catch (error) {
-                console.error('Error fetching dataa: ', error);
-            }
+            })
+            
+            // Populate inMemoryCache and localStorage here
+
+        } catch (error) {
+            console.error('Error fetching dataa: ', error);
         }
-       },
+    },
 
        // LOAD CACHED DATA
        // Loads data from local storage if available and updates inMemory

@@ -16,13 +16,15 @@
 <script>
 import { useSensorStore } from '@/stores/sensorStoreLab7Sup1.js';
 import { onMounted } from 'vue';
-import db from '../firebaseConfig.js'; 
+import db from '../firebaseConfig.js'
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'; // Import necessary functions
-
 
 export default {
     setup() {
         const sensorStore = useSensorStore();
+
+        // Load cached data on initialization
+        sensorStore.loadCachedData();
 
         onMounted(() => {
             sensorStore.fetchSensorData()
@@ -35,7 +37,6 @@ export default {
     data() {
         return {
             currentTime: '', // New data property for current time
-            
         };
     },
     created() {
@@ -46,19 +47,25 @@ export default {
         setInterval(this.updateTime, 1000); // Update time every second
     },
     methods: {
-        fetchData() {
-            const colRef = collection(db, 'sensorData'); // Create a reference to the collection
-            const q = query(colRef, orderBy('timestamp', 'desc')); // Query to order by timestamp
+        async fetchData(){
+            try {
+                // Fetch data from Firebase and populate sensorDataa
+                const colRef = collection(db, 'sensorData');
+                const q = query(colRef, orderBy('timestamp', 'desc'));
 
-            // Listen for real-time updates
-            onSnapshot(q, (snapshot) => {
-                // Map through documents and get the latest 10 readings
-                this.sensorData = snapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .slice(0, 10); // Get only the top 10 latest readings
-            }, (error) => {
-                console.error("Error fetching sensor data:", error);
-            });
+                onSnapshot(q, (snapshot) => {
+                    // Map through documents and get the latest 10 readings
+                    this.sensorData = snapshot.docs
+                        .map(doc => ({ id:doc.id, ...doc.data() }))
+                        .slice(0,10); // Get only 1top 10 latestt readings
+                })
+                
+                // Populate inMemoryCache and localStorage here
+
+            } catch (error) {
+                console.error('Error fetching dataa: ', error);
+                return;
+            }
         },
         updateTime() {
             const now = new Date();

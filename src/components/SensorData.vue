@@ -1,7 +1,6 @@
 <template>
     <div>
       <h1>Sensor Data</h1>
-      <p>Current Time: {{ currentTime }}</p> <!-- Display the current time -->
       <ul>
         <li v-for="data in sensorData" :key="data.id">
           <strong>Temperature:</strong> {{ data.temperature }}°C <br />

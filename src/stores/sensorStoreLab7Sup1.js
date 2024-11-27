@@ -1,112 +1,116 @@
 import { defineStore } from 'pinia';
-import db from '../firebaseConfig.js'; 
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'; // Import necessary functions
-// In-memory cache for quick acceess during the session
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import db from '../firebaseConfig.js';
+
+// In-memory cache
 const inMemoryCache = [];
 
 export const useSensorStore = defineStore('sensor', {
-    state: () => ({
-        sensorData: [] // Array to store sensor data
-    }),
+  state: () => ({
+    sensorData: [], // Array to store sensor data
+    isOffline: !navigator.onLine, // Track offline/online state
+    unsubscribe: null, // For Firestore onSnapshot unsubscribe
+  }),
 
-    actions: {
-        /*
-        READ: Fetch Sensor Data
-        This action fetches data from Firebase, caches it, and saves it to local storage
-        */
-       async fetchSensorData(){
-        // Check if data exists in inMemoryCache first
-        if (inMemoryCache.length > 0) {
-            console.log(inMemoryCache);
-            this.sensorData = inMemoryCache; // Use cached data
-        } 
-
+  actions: {
+    // Fetch data from Firestore
+    async fetchSensorData() {
+      if (inMemoryCache.length > 0) {
+        this.sensorData = inMemoryCache; // Use in-memory cache if available
+      } else {
         try {
-            // Fetch data from Firebase and populate sensorDataa
             const colRef = collection(db, 'sensorData');
             const q = query(colRef, orderBy('timestamp', 'desc'));
+    
+            // Unsubscribe from any existing listener
+            if (this.unsubscribe) {
+              this.unsubscribe();
+              this.unsubscribe = null;
+            }
+    
+            // Set up Firestore listener
+            this.unsubscribe = onSnapshot(
+              q,
+              (snapshot) => {
+                console.log('onSnapshot triggered');
+                const updatedData = snapshot.docs
+                  .map((doc) => ({ id: doc.id, ...doc.data() }))
+                  .slice(0, 10); // Limit to 10 entries
+                
+                if(updatedData.length){
+                this.sensorData = updatedData; // Update state
+                inMemoryCache.push(...updatedData); // Update cache
+                this.updateLocalStorage(); // Sync to local storage
+                }
+              },
+              (error) => {
+                console.error('Firestore snapshot error:', error);
+                if (error.code === 'unavailable' || error.code === 'failed-precondition') {
+                  console.warn('Firestore unavailable. Using cached data.');
+                  this.loadCachedData();
+                }
+              }
+            );
+          } catch (error) {
+            console.error('Error fetching data:', error);
+            this.loadCachedData(); // Fallback to cached data
+          }
+      }
 
-            onSnapshot(q, (snapshot) => {
-                // Map through documents and get the latest 10 readings
-                this.sensorData = snapshot.docs
-                    .map(doc => ({ id:doc.id, ...doc.data() }))
-                    .slice(0,10); // Get only 1top 10 latestt readings
-                inMemoryCache.push({...this.sensorData}); // Upate in-memoryu cachje
-                this.updateLocalStorage(); // Save to local storage
-            })
-            
-            // Populate inMemoryCache and localStorage here
+      if (!navigator.onLine) {
+        console.log('Offline mode: Using cached data.');
+        this.loadCachedData();
+        return;
+      }
 
-        } catch (error) {
-            console.error('Error fetching dataa: ', error);
-        }
+      
     },
 
-       // LOAD CACHED DATA
-       // Loads data from local storage if available and updates inMemory
-       loadCachedData () {
-        const cachedData = localStorage.getItem('sensorData');
-        if (cachedData) {
-            this.sensorData = JSON.parse(cachedData);
-            inMemoryCache.push(...this.sensorData); //Sync cache with local storage data 
-        }
-       },
+    // Load cached data from local storage
+    loadCachedData() {
+      const cachedData = localStorage.getItem('sensorData');
+      if (cachedData) {
+        this.sensorData = JSON.parse(cachedData);
+        console.info('Loaded data from cache.');
+      } else {
+        console.warn('No cached data found.');
+      }
+    },
 
-       // CREATTE: Add New Sensor Data
-       // This action adds a new data entry to Firebase and updates the store, ccache, and local storage,
-       async addSensorData(data) {
-        try {
-            // Add new data to Firebase, then update sensorData, inMemoryCache, and localStorage
-            const docRef = await db.collection('sensorData').add(data);
-            const newSensorData = { id: docRef.id, ...data}; // include the new document ID
-            this.sensorData.push(newSensorData); // Updatae state with new data
-            inMemoryCache.push(newSensorData); // Update cache
-            this.updateLocalStorage(); // Save to local storage
-        } catch (error) {
-            console.error('Error adding data:', error);
-        }
-       },
+    // Update local storage
+    updateLocalStorage() {
+      localStorage.setItem('sensorData', JSON.stringify(this.sensorData));
+    },
 
-       // UPDATE: Update Existing Sensor Data
-       // This action updates a specific entry in Firebase, and syncs it across state, cache, and local storage
-       async updateSensorData(id, updatedData) {
-        try {
-            // Update data in Firebase, then update sensorData and cacches
-            await db.collection('sensorData').doc(id).update(updatedData);
-            const index = this.sensorData.findIndex(data => data.id === id);
-            
-            if (index !== -1){
-                this.sensorData[index] = { ... this.sensorData[index], ...updateData }; // update state
-                inMemoryCache[index] = {...inMemoryCache[index], ...updateDate }; // update cache
-                this.updateLocalStorage(0); // Save to local storage
-            }
-        } catch (error) {
-            console.error ('Error updating data:', error);
-        }
-       },
+    // Monitor online/offline status
+    handleConnectivityChange() {
+      this.isOffline = !navigator.onLine;
 
-       // DELETE: Remove Sensor Data
-       // This action deletes a specific entry from Firebase and removes it from state, cache, and local storage
-       async deleteSensorData(id) {
-        try {
-            // Delete data from Firebase, then remove from sensorData, inMemoryCaccche, and localStorage
-            await db.collecction('sensorData').doc(id).delete();
-            this.sensorData = this.sensorData.filter(data => data.id !== id); // Remove from state
-            const index = inMemoryCache.findIndex(data => data.id === id);
+      if (this.isOffline) {
+        console.warn('Now offline: Switching to cached data.');
+        this.loadCachedData();
+      } else {
+        console.info('Now online: Fetching real-time data.');
+        this.fetchSensorData();
+      }
+    },
+  },
 
-            if(index !== -1){
-                inMemoryCache.splice(index, 1); //Remove from cache
-                this .updateLocalStorage(); // sAVE TO  LOCAL STORAGE
-            }
-        } catch (error) {
-            console.error('Error deleting data:', error);
-        }
-       },
+  // Lifecycle hooks for connectivity monitoring
+  mounted() {
+    window.addEventListener('online', this.handleConnectivityChange);
+    window.addEventListener('offline', this.handleConnectivityChange);
 
-       // Helper: Update Loccal Storage
-       // Savs the current sensorData state to local storage
-       updateLocalStorage() {
-        localStorage.setItem('sensorData', JSON.stringify(this.sensorData));
-       }
+    this.handleConnectivityChange(); // Set initial state
+  },
+
+  beforeDestroy() {
+    window.removeEventListener('online', this.handleConnectivityChange);
+    window.removeEventListener('offline', this.handleConnectivityChange);
+
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = null;
     }
-})
+  },
+});

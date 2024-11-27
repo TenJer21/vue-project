@@ -1,131 +1,89 @@
 <template>
     <div>
-        <h1>Sensor Data</h1>
-        <p>Current Time: {{ currentTime }}</p> <!-- Display the current time -->
-        <ul>
-            <li v-for="data in sensorData" :key="data.id">
-                <strong>Temperature:</strong> {{ data.temperature }}°C <br>
-                <strong>Humidity:</strong> {{ data.humidity }} %<br>
-                <strong>Recorded at:</strong> {{ formatTimestamp(data.timestamp) }}
-            </li>
-        </ul>
+      <h1>Sensor Data</h1>
+      <p v-if="isOffline" class="warning">You are offline. Displaying cached data.</p>
+      <ul>
+        <li v-for="data in sensorData" :key="data.id">
+          <strong>Temperature:</strong> {{ data.temperature }}°C <br />
+          <strong>Humidity:</strong> {{ data.humidity }}% <br />
+          <strong>Recorded at:</strong> {{ formatTimestamp(data.timestamp) }}
+        </li>
+      </ul>
     </div>
-</template>
-
-
-<script>
-import { useSensorStore } from '@/stores/sensorStoreLab7Sup1.js';
-import { onMounted } from 'vue';
-import db from '../firebaseConfig.js'
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'; // Import necessary functions
-
-export default {
+  </template>
+  
+  <script>
+  import { useSensorStore } from '@/stores/sensorStoreLab7Sup1.js';
+  import { computed, onMounted } from 'vue';
+  
+  export default {
     setup() {
-        const sensorStore = useSensorStore();
-
-        // Load cached data on initialization
-        sensorStore.loadCachedData();
-
-        onMounted(() => {
-            sensorStore.fetchSensorData()
-        });
-
-        return{
-            sensorData: sensorStore.sensorData
-        };
-    },
-    data() {
-        return {
-            currentTime: '', // New data property for current time
-        };
-    },
-    created() {
-        this.fetchData();
-        this.updateTime(); // Call to set initial time
-    },
-    mounted() {
-        setInterval(this.updateTime, 1000); // Update time every second
+      const sensorStore = useSensorStore();
+  
+      // Load data on component mount
+      sensorStore.loadCachedData();
+      
+      onMounted(() => {
+        sensorStore.fetchSensorData();
+      });
+  
+      return {
+        sensorData: computed(() => sensorStore.sensorData),
+        isOffline: computed(() => sensorStore.isOffline),
+      };
     },
     methods: {
-        async fetchData(){
-            try {
-                // Fetch data from Firebase and populate sensorDataa
-                const colRef = collection(db, 'sensorData');
-                const q = query(colRef, orderBy('timestamp', 'desc'));
-
-                onSnapshot(q, (snapshot) => {
-                    // Map through documents and get the latest 10 readings
-                    this.sensorData = snapshot.docs
-                        .map(doc => ({ id:doc.id, ...doc.data() }))
-                        .slice(0,10); // Get only 1top 10 latestt readings
-                })
-                
-                // Populate inMemoryCache and localStorage here
-
-            } catch (error) {
-                console.error('Error fetching dataa: ', error);
-                return;
-            }
-        },
-        updateTime() {
-            const now = new Date();
-            this.currentTime = now.toLocaleTimeString(); // Format current time as a string
-        },
-        formatTimestamp(timestamp) {
-            const date = new Date(timestamp);
-            return date.toLocaleString(); // Format timestamp as a readable string
-        }
+      formatTimestamp(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleString();
+      },
     },
-};
-</script>
-
-<style scoped>
-body {
+  };
+  </script>
+  
+  <style scoped>
+  .warning {
+    color: red;
+    font-weight: bold;
+  }
+  
+  body {
     font-family: 'Arial', sans-serif;
-    background-color: #f9f9f9; /* Light background */
+    background-color: #f9f9f9;
     margin: 0;
     padding: 20px;
-}
-
-div {
+  }
+  
+  div {
     max-width: 800px;
     margin: auto;
     padding: 20px;
-    background-color: #ffffff; /* White background */
+    background-color: #ffffff;
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-h1 {
-    color: #333; /* Dark text */
+  }
+  
+  h1 {
+    color: #333;
     font-size: 2em;
     margin-bottom: 10px;
-}
-
-h2 {
-    color: #333; /* Dark text */
-    font-size: 0.75em;
-    margin-bottom: 10px;
-}
-p {
-    color: #555; /* Medium grey for paragraph */
-    font-size: 1.1em;
-}
-
-ul {
+  }
+  
+  ul {
     list-style-type: none;
     padding: 0;
-}
-
-li {
-    background-color: #e7f3fe; /* Light blue */
+  }
+  
+  li {
+    background-color: #f62fc4;
     border-radius: 5px;
     padding: 10px;
     margin-bottom: 10px;
-    color: #000; /* Ensure text inside list items is black */
-}
-
-li:hover {
-    background-color: #d1e7fd; /* Darker blue on hover */
-}
-</style>
+    color: #000;
+  }
+  
+  li:hover {
+    background-color: #d1e7fd;
+  }
+  </style>
+  

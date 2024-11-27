@@ -31,58 +31,27 @@
         sensorData: computed(() => sensorStore.sensorData),
       };
     },
+    data(){
+        return{
+            currentTime:'', 
+        };
+    },
+    created(){
+        this.updateTime();
+    },
+    mounted(){
+        setInterval(this.updateTime, 1000);
+    },
     methods: {
-      formatTimestamp(timestamp) {
-        const date = new Date(timestamp);
-        return date.toLocaleString();
-      },
+        updateTime() {
+            const now = new Date();
+            this.currentTime = now.toLocaleTimeString(); // Format current time as a string
+        },
+        formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        },
     },
   };
-  </script> 
+  </script>
   
-   <style scoped>
-   .warning {
-     color: red;
-     font-weight: bold;
-   }
-   
-   body {
-     font-family: 'Arial', sans-serif;
-     background-color: #f9f9f9;
-     margin: 0;
-     padding: 20px;
-   }
-   
-   div {
-     max-width: 800px;
-     margin: auto;
-     padding: 20px;
-     background-color: #a304ca;
-     border-radius: 8px;
-     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-   }
-   
-   h1 {
-     color: #ffffff;
-     font-size: 2em;
-     margin-bottom: 10px;
-   }
-   
-   ul {
-     list-style-type: none;
-     padding: 0;
-   }
-   
-   li {
-     background-color: #b47cda;
-     border-radius: 5px;
-     padding: 10px;
-     margin-bottom: 10px;
-     color: #ffffff;
-   }
-   
-   li:hover {
-     background-color: #d1e7fd;
-   }
-</style>
-   
